@@ -10,15 +10,13 @@ from torch import nn
 from transforms import data_tfs
 from dataset import TrainDataset
 from net import MnistNet
-        
-def train(gpu, gpu_count,max_epochs,input_dir):
-    train_data = pd.read_csv("./dataset/train.csv")
+import pickle
+         
+def train(gpu, train_path, model_state_path, accuracy_path, loss_path, gpu_count, max_epochs):
+    train_data = pd.read_csv(train_path)
     labels = train_data['label']
     train_data = train_data.drop(columns=["label"])
     train_data.head()
-    
-    accurancy = {"train": [], "valid": []}
-    losses = {"train": [], "valid": []}
 
     rank = gpu
     word_size = gpu_count
@@ -74,6 +72,9 @@ def train(gpu, gpu_count,max_epochs,input_dir):
         sampler=val_sampler
     )
 
+    accuracy = {"train": [], "valid": []}
+    losses = {"train": [], "valid": []}
+
     loaders = {"train": train_loader, "valid": val_loader}
     
     for epoch in range(max_epochs):
@@ -116,4 +117,13 @@ def train(gpu, gpu_count,max_epochs,input_dir):
                 acc = epoch_currect/epoch_all
                 loss = np.mean(epoch_loss)
                 losses[k].append(loss)
+                accuracy[k].append(acc)
                 print(f'Loader: {k}, accuracy {acc}, loss: {loss}')
+
+    if gpu == 0:
+        torch.save(model.module.state_dict(), model_state_path)    
+        with open(accuracy_path, 'wb') as file:
+            pickle.dump(accuracy, file)
+
+        with open(loss_path, 'wb') as file:
+            pickle.dump(losses, file)
